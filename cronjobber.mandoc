@@ -1,0 +1,319 @@
+.Dd $date$
+.Dt cronjobber 8
+.Os
+.Sh NAME
+.Nm cronjobber
+.Nd cron job wrapper
+.Sh SYNOPSIS
+.Nm cronjobber
+.Fl n Ar jobname
+.Fl s Ar statedir
+.Fl c Ar job
+.Op Fl D Ar jobdir
+.Op Fl r Ar maxbackoff
+.Op Fl x Ar checker
+.Op Fl e Ar var=val
+.Op Fl m Ar umask
+.Op Fl t Ar timeout
+.Op Fl k Ar signo
+.Op Fl 5 Ar crash-subject
+.Op Fl S Ar fail-subject
+.Op Fl F Ar from
+.Op Fl T Ar to
+.Op Fl M Ar sendmail
+.Op Fl a Ar age
+.Op Fl l
+.Op Fl h
+.Op Fl V
+.Sh DESCRIPTION
+.Nm
+is a wrapper providing cron jobs with the ability to log each run, to timeout
+long running or hung jobs, to randomize startup times, and to selectively mail
+job output.
+In normal usage, a
+.Xr crontab 5
+entry invokes
+.Nm ,
+which then invokes
+your job.
+The following options are recognized:
+.Bl -tag -width Ds
+.It Fl n Ar jobname
+Short name for this job.
+Used in mail subject lines and error messages to identify this job.
+.It Fl s Ar statedir
+Name of directory used to hold job state and logs.
+This directory must exist and must be writable by the crontab owner.
+It must also support
+.Xr fcntl 2
+locking.
+.It Fl c Ar job
+Path to actual job to run, and any arguments.
+.Nm
+passes this string unmodified to a shell to execute.
+Path is relative to
+.Ar jobdir .
+If no
+.Ar jobdir
+is specified,
+path will be relative to
+.Ev HOME .
+It is probably best to specify the full path to the job.
+.It Fl D Ar jobdir
+Change to
+.Ar jobdir
+before invoking the job.
+If
+.Fl D
+is not given, then the value of
+.Ev HOME
+is used.
+If
+.Ev HOME
+is not set, then
+the password entry for the effective user id is used.
+.It Fl r Ar maxbackoff
+Maximum random backoff time.
+If not specified, the job will be executed immediately.
+Otherwise,
+.Nm
+will wait for a random time between 0 and
+.Ar maxbackoff
+seconds to execute the job.
+.It Fl x Ar checker
+Path to checker script relative to
+.Ar statedir .
+See below for the checker API.
+.It Fl e Ar var[=val]
+Modify environment passed to
+.Ar job
+and to
+.Ar checker .
+A minimal environment is constructed and passed to the job and to the
+checker.
+This includes
+.Ev HOME ,
+.Ev LOGNAME ,
+.Ev PATH ,
+.Ev SHELL ,
+and
+.Ev USER .
+Additional variables may be included by using the
+.Fl e
+flag.
+If the argument to
+.Fl e
+is just a variable name without an equals, then the value of that variable
+at
+.Nm
+run time will be included in the made-up environment.
+If the argument has an equals, but no value, then the variable will be set,
+but empty in the made-up environment.
+Otherwise if a value is provided, that will be the value set in the made-up
+environment.
+
+Multiple environment variables can be set by using multiple
+.Fl e
+flags.
+.It Fl m Ar umask
+Set umask before invoking job.
+Use the normal octal representation.
+.It Fl t Ar timeout
+Attempt to kill job after
+.Ar timeout
+seconds.
+If no timeout is given, the job may run indefinitely.
+The default signal is
+.Li SIGTERM ,
+but this may be changed with the
+.Fl k
+flag.
+It is best to test that timeouts actually work on your system.
+You may have to change the signal number because different
+shells may ignore certain signals.
+.It Fl k Ar signo
+If the
+.Fl r
+flag was given to enable a job timeout signal, then send signal
+.Ar signo
+rather than the default
+.Li SIGTERM .
+.Ar signo
+must be numeric.
+.It Fl 5 Ar crash-subject
+If
+.Nm
+discovers the previous instance of itself has crashed (the log is still
+present), it will send a message with a subject "crashed" and the
+.Ar jobname .
+You can change this subject with the
+.Fl 5
+flag.
+.It Fl S Ar fail-subject
+If the checker decides the job has failed,
+.Nm
+will send a message with a subject "failed", and the
+.Ar jobname .
+You can change this subject with the
+.Fl S
+flag.
+.It Fl F Ar From
+Set the envelope sender and From: header to
+.Ar From .
+.It Fl T Ar To
+Send crash and error messages to
+.Ar To .
+To send to multiple recipients, use multiple
+.Fl T
+flags.
+.It Fl M Ar sendmail
+Specify exact path to sendmail.
+.Nm
+will check
+.Ev MAILER
+or the
+PATH
+provided by
+.Xr cron 8
+for sendmail.
+This path may not include sendmail, so it is best to spell it out with
+.Fl M .
+.It Fl a Ar age
+.Nm
+removes log files older than
+.Ar age
+seconds.
+.Ar age
+may be suffixed by
+.Li s ,
+.Li m ,
+.Li h
+or
+.Li d
+to indicate seconds, minutes, hours or days, respectively.
+For example, use
+.Li 7d
+to specify a week.
+.It Fl l
+List command line arguments.
+Parse command line, print the results and exit.
+.It Fl h
+Print usage and exit.
+.It Fl V
+Print version and exit.
+.El
+.Sh CHECKER API
+The job of the checker script is to decide whether or not to email the output
+of the latest job run.
+It does this by looking at the output log and exiting 0 or 1.
+When the checker is invoked, its environment looks like this:
+.Bl -tag -width Ds
+.It Current directory
+The checker will be invoked from within the
+.Ar statedir
+passed to cronjobber with the
+.Fl s
+flag.
+.It Environment
+The checker will inherit the same minimal environment passed to the job, plus
+one of the following variables:
+.Ev WEXITSTATUS ,
+.Ev WTERMSIG
+or
+.Ev WSTATUS .
+If the job exited normally,
+.Ev WEXITSTATUS
+will hold the job exit status.
+Otherwise if the job was terminated by a signal then
+.Ev
+WTERMSIG
+will hold the signal number.
+If
+.Ev WSTATUS
+is set, there might be a bug in cronjobber on your platform.
+.It Standard input
+The checker's standard input will be the job's log file.
+.It Standard out and standard error
+stdout and stderr are not redirected, so any output from the checker will
+result in cron sending mail to the crontab owner.
+.It Command line
+No command line arguments are passed to the checker in the current version.
+.El
+
+The checker should exit 0 if the job was successful and no mail should be sent.
+Otherwise exit 1 to have the job output emailed to the recipients passed with
+the
+.Fl T
+flag(s).
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev HOME
+Default
+.Ar jobdir .
+.It Ev LOGNAME
+Used to determine default mail recipient.
+.It Ev MAILER
+Default location of sendmail.
+.It Ev SHELL
+The value of
+.Ev SHELL
+is used to when invoking the job.
+If SHELL
+is not set, then
+.Pa /bin/sh
+is used.
+The job is invoked as the
+.Fl c
+argument to the shell.
+.It Ev USER
+Used to determine default mail recipient.
+Takes precedence over
+.Ev LOGNAME .
+.El
+.Sh FILES
+Within the
+.Ar statedir
+the following files are significant:
+.Bl -tag -width Ds
+.It Pa lock
+Lock file used to prevent multiple instances from running at once.
+.It Pa log
+Current log file, stdout and stderr of the job itself.
+If this file exists, then there is an instance of the job running, or
+.Nm
+was killed before it could rotate the log file.
+A killed log file will be sent in a "crashed" message the next time
+.Nm
+runs.
+.It Pa log.timestamp
+When the job and the checker have finished, the log file is renamed with
+a timestamp.
+The timestamp is in the form YYYYmmddHHMMss.
+Normally the timestamp is the job start time.
+But if
+.Nm
+crashed and the log had to be cleaned up, the timestamp will be the
+.Li mtime
+of the log file.
+.El
+.Sh EXIT STATUS
+.Nm
+will exit 0 if it finished successfully, 1 otherwise.
+Note that the exit value of the job and the checker do not influence the
+exit value of
+.Nm .
+Also note that
+.Xr cron 8
+doesn't really care about the exit value of a job anyway.
+.Sh SEE ALSO
+.Xr cron 8 ,
+.Xr crontab 1 ,
+.Xr crontab 5 ,
+.Xr environ 7 ,
+.Xr sendmail 8 ,
+.Xr signal 3 ,
+.Xr umask 2
+.Sh AUTHOR
+.An Daniel Lawrence Aq https://github.com/wavemechanics/cronjobber/
+.Sh BUGS
+Please report.
