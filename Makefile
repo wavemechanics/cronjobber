@@ -19,12 +19,16 @@ cronjobber.8.html: cronjobber.mandoc ## generate html man page
 clean::
 	rm -f cronjobber.8.html cronjobber.8.html.new
 
+cronjobber.man.txt: cronjobber.mandoc	## generate ascii man page without overstrike
+	nroff -mdoc cronjobber.mandoc | col -b > cronjobber.man.txt.new
+	mv cronjobber.man.txt.new cronjobber.man.txt
+# don't remove cronjobber.man.txt because we want this in the repo for github display
+
 cronjobber.8.txt: cronjobber.mandoc	## generate ascii man page
 	nroff -mdoc cronjobber.mandoc > cronjobber.8.txt.new
 	mv cronjobber.8.txt.new cronjobber.8.txt
-# don't remove the .txt file because we want this in the repo for github display
 clean::
-	rm -f cronjobber.man.txt.new
+	rm -f cronjobber.8.txt cronjobber.8.txt.new
 
 cronjobber.8.ps: cronjobber.mandoc	## generate postscript man page
 	groff -mdoc -tps cronjobber.mandoc > cronjobber.8.ps.new

@@ -13,7 +13,7 @@ You really only need to create an empty directory and make sure it is writable b
 
 Cronjobber may be invoked directly from cron, but because of the number of command line options, the cron entry may become unwieldy.
 A wrapper script may be written to make the cron entry less confusing.
-See the [man page](cronjobber.8.txt) for cronjobber command line options.
+See the [man page](cronjobber.man.txt) for cronjobber command line options.
 
 Here is an example wrapper script:
 
@@ -43,7 +43,7 @@ The checker script is invoked with certain environment variables set to indicate
 The checker script uses this information to decide whether or not to have cronjobber email the job output.
 If the checker script exits 0, then no job output will be emailed.
 Otherwise, the output will be emailed.
-See the [man page](cronjobber.8.txt) for more information.
+See the [man page](cronjobber.man.txt) for more information.
 
 Here is an example checker script that causes mail to be sent if the job exited non-zero or if the job output did not include the word `OK`:
 

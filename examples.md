@@ -5,7 +5,7 @@ An example cronjobber setup
 This is an example of how cronjobber can be used to watch for changes in the output of a command.
 In this example, we use the output of raid controller status command `tw_cli`.
 
-the actual cron job retrieves `tw_cli` output, and cronjobber ensures the output is saved to a log under `/root/cron/3ware`.
+The actual cron job retrieves `tw_cli` output, and cronjobber ensures the output is saved to a log under `/root/cron/3ware`.
 
 Here is an exmaple wrapper script:
 
