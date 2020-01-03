@@ -1,0 +1,197 @@
+
+cronjobber(8)		  BSD System Manager’s Manual		 cronjobber(8)
+
+NAME
+     cronjobber — cron job wrapper
+
+SYNOPSIS
+     cronjobber −n jobname −s statedir −c job [−D jobdir] [−r maxbackoff]
+		[−x checker] [−e var=val] [−m umask] [−t timeout] [−k signo]
+		[−5 crash‐subject] [−S fail‐subject] [−F from] [−T to]
+		[−M sendmail] [−a age] [−l] [−h] [−V]
+
+DESCRIPTION
+     cronjobber is a wrapper providing cron jobs with the ability to log each
+     run, to timeout long running or hung jobs, to randomize startup times,
+     and to selectively mail job output.  In normal usage, a crontab(5) entry
+     invokes cronjobber, which then invokes your job.  The following options
+     are recognized:
+
+     −n jobname
+	     Short name for this job.  Used in mail subject lines and error
+	     messages to identify this job.
+
+     −s statedir
+	     Name of directory used to hold job state and logs.  This direc‐
+	     tory must exist and must be writable by the crontab owner.  It
+	     must also support fcntl(2) locking.
+
+     −c job  Path to actual job to run, and any arguments.  cronjobber passes
+	     this string unmodified to a shell to execute.  Path is relative
+	     to jobdir.  If no jobdir is specified, path will be relative to
+	     HOME.  It is probably best to specify the full path to the job.
+
+     −D jobdir
+	     Change to jobdir before invoking the job.	If −D is not given,
+	     then the value of HOME is used.  If HOME is not set, then the
+	     password entry for the effective user id is used.
+
+     −r maxbackoff
+	     Maximum random backoff time.  If not specified, the job will be
+	     executed immediately.  Otherwise, cronjobber will wait for a ran‐
+	     dom time between 0 and maxbackoff seconds to execute the job.
+
+     −x checker
+	     Path to checker script relative to statedir.  See below for the
+	     checker API.
+
+     −e var[=val]
+	     Modify environment passed to job and to checker.  A minimal envi‐
+	     ronment is constructed and passed to the job and to the checker.
+	     This includes HOME, LOGNAME, PATH, SHELL, and USER.  Additional
+	     variables may be included by using the −e flag.  If the argument
+	     to −e is just a variable name without an equals, then the value
+	     of that variable at cronjobber run time will be included in the
+	     made‐up environment.  If the argument has an equals, but no
+	     value, then the variable will be set, but empty in the made‐up
+	     environment.  Otherwise if a value is provided, that will be the
+	     value set in the made‐up environment.
+
+	     Multiple environment variables can be set by using multiple −e
+	     flags.
+
+     −m umask
+	     Set umask before invoking job.  Use the normal octal representa‐
+	     tion.
+
+     −t timeout
+	     Attempt to kill job after timeout seconds.  If no timeout is
+	     given, the job may run indefinitely.  The default signal is
+	     SIGTERM, but this may be changed with the −k flag.  It is best to
+	     test that timeouts actually work on your system.  You may have to
+	     change the signal number because different shells may ignore cer‐
+	     tain signals.
+
+     −k signo
+	     If the −r flag was given to enable a job timeout signal, then
+	     send signal signo rather than the default SIGTERM.  signo must be
+	     numeric.
+
+     −5 crash‐subject
+	     If cronjobber discovers the previous instance of itself has
+	     crashed (the log is still present), it will send a message with a
+	     subject "crashed" and the jobname.  You can change this subject
+	     with the −5 flag.
+
+     −S fail‐subject
+	     If the checker decides the job has failed, cronjobber will send a
+	     message with a subject "failed", and the jobname.	You can change
+	     this subject with the −S flag.
+
+     −F From
+	     Set the envelope sender and From: header to From.
+
+     −T To   Send crash and error messages to To.  To send to multiple recipi‐
+	     ents, use multiple −T flags.
+
+     −M sendmail
+	     Specify exact path to sendmail.  cronjobber will check MAILER or
+	     the PATH provided by cron(8) for sendmail.  This path may not
+	     include sendmail, so it is best to spell it out with −M.
+
+     −a age  cronjobber removes log files older than age seconds.  age may be
+	     suffixed by s, m, h or d to indicate seconds, minutes, hours or
+	     days, respectively.  For example, use 7d to specify a week.
+
+     −l      List command line arguments.  Parse command line, print the
+	     results and exit.
+
+     −h      Print usage and exit.
+
+     −V      Print version and exit.
+
+CHECKER API
+     The job of the checker script is to decide whether or not to email the
+     output of the latest job run.  It does this by looking at the output log
+     and exiting 0 or 1.  When the checker is invoked, its environment looks
+     like this:
+
+     Current directory
+	     The checker will be invoked from within the statedir passed to
+	     cronjobber with the −s flag.
+
+     Environment
+	     The checker will inherit the same minimal environment passed to
+	     the job, plus one of the following variables: WEXITSTATUS,
+	     WTERMSIG or WSTATUS.  If the job exited normally, WEXITSTATUS
+	     will hold the job exit status.  Otherwise if the job was termi‐
+	     nated by a signal then WTERMSIG will hold the signal number.  If
+	     WSTATUS is set, there might be a bug in cronjobber on your plat‐
+	     form.
+
+     Standard input
+	     The checker’s standard input will be the job’s log file.
+
+     Standard out and standard error
+	     stdout and stderr are not redirected, so any output from the
+	     checker will result in cron sending mail to the crontab owner.
+
+     Command line
+	     No command line arguments are passed to the checker in the cur‐
+	     rent version.
+
+     The checker should exit 0 if the job was successful and no mail should be
+     sent.  Otherwise exit 1 to have the job output emailed to the recipients
+     passed with the −T flag(s).
+
+ENVIRONMENT
+     HOME    Default jobdir.
+
+     LOGNAME
+	     Used to determine default mail recipient.
+
+     MAILER  Default location of sendmail.
+
+     SHELL   The value of SHELL is used to when invoking the job.  If SHELL is
+	     not set, then /bin/sh is used.  The job is invoked as the −c
+	     argument to the shell.
+
+     USER    Used to determine default mail recipient.	Takes precedence over
+	     LOGNAME.
+
+FILES
+     Within the statedir the following files are significant:
+
+     lock    Lock file used to prevent multiple instances from running at
+	     once.
+
+     log     Current log file, stdout and stderr of the job itself.  If this
+	     file exists, then there is an instance of the job running, or
+	     cronjobber was killed before it could rotate the log file.  A
+	     killed log file will be sent in a "crashed" message the next time
+	     cronjobber runs.
+
+     log.timestamp
+	     When the job and the checker have finished, the log file is
+	     renamed with a timestamp.	The timestamp is in the form YYYYmmd‐
+	     dHHMMss.  Normally the timestamp is the job start time.  But if
+	     cronjobber crashed and the log had to be cleaned up, the time‐
+	     stamp will be the mtime of the log file.
+
+EXIT STATUS
+     cronjobber will exit 0 if it finished successfully, 1 otherwise.  Note
+     that the exit value of the job and the checker do not influence the exit
+     value of cronjobber.  Also note that cron(8) doesn’t really care about
+     the exit value of a job anyway.
+
+SEE ALSO
+     cron(8), crontab(1), crontab(5), environ(7), sendmail(8), signal(3),
+     umask(2)
+
+AUTHOR
+     Daniel Lawrence ⟨https://github.com/wavemechanics/cronjobber/⟩
+
+BUGS
+     Please report.
+
+BSD				January 3, 2020 			   BSD
