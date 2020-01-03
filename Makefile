@@ -47,7 +47,7 @@ release: ## Tag this version as a release
 	tools/brand.sh cronjobber.c "$(SEMVER)"
 	cc -o cronjobber cronjobber.c
 	test -d .git || (echo "must be in git working directory"; false)
-	git add version.h
+	git add cronjobber.c
 	git commit -m "branded $(SEMVER)"
 	git push
 	git tag "$(SEMVER)"
