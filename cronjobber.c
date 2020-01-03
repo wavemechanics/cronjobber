@@ -18,7 +18,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-char *revision = "$semver: 1.6.0 $";
+char *revision = "$semver: 1.6.1 $";
 
 extern char **environ;
 
